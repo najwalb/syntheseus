@@ -14,7 +14,7 @@ import random
 import warnings
 from collections import defaultdict
 from typing import Any, List, Optional, Sequence
-
+from functools import partial
 import yaml
 from rdkit import Chem
 
@@ -41,9 +41,10 @@ class RootAlignedModel(ExternalBackwardReactionModel):
         - `model_dir` contains the model checkpoint as the only `*.pt` file
         - `model_dir` contains the config as the only `*.yml` file
         """
+        
         super().__init__(*args, **kwargs)
 
-        # Parse arguments for calling external functions from `root_aligned/OpenNMT.py`.
+        #Parse arguments for calling external functions from `root_aligned/OpenNMT.py`.
         with open(get_unique_file_in_dir(self.model_dir, pattern="*.yml"), "r") as f:
             opt_from_config = yaml.safe_load(f)
 
@@ -58,6 +59,8 @@ class RootAlignedModel(ExternalBackwardReactionModel):
         opt.gpu = -1 if self.device == "cpu" else torch.device(self.device).index
 
         setattr(opt, "synthon", False)
+
+        self.opt = opt
 
         from root_aligned import score
 
@@ -219,8 +222,9 @@ class RootAlignedModel(ExternalBackwardReactionModel):
 
         raw_predictions = []
         pool = multiprocessing.Pool(multiprocessing.cpu_count())
+        wrapper = partial(canonicalize_smiles_clear_map, opt=self.opt)
         raw_predictions = pool.map(
-            func=canonicalize_smiles_clear_map, iterable=lines
+            func=wrapper, iterable=lines
         )  # Canonicalize reactants and modify illegal reactants into empty strings.
         pool.close()
         pool.join()
@@ -242,7 +246,7 @@ class RootAlignedModel(ExternalBackwardReactionModel):
         from root_aligned.score import compute_rank
 
         for i in range(len(predictions)):
-            rank, _ = compute_rank(predictions[i])
+            rank, _ = compute_rank(predictions[i], opt=self.opt)
             rank = list(zip(rank.keys(), rank.values()))
             rank.sort(key=lambda x: x[1], reverse=True)
             rank = rank[:num_results]  # Truncate to `num_results` results.
