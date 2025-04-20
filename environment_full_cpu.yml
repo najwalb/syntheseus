@@ -1,0 +1,18 @@
+name: syntheseus-full-cpu
+channels:
+  - defaults
+  - conda-forge
+  - pytorch
+  - dglteam                 # LocalRetro, RetroKNN
+  - pyg                     # RetroKNN
+dependencies:
+# TODO: investigate dependency issues of pytorch and python 3.9.7 later
+  - dgl                # LocalRetro, RetroKNN
+  - faiss-cpu               # RetroKNN
+  - numpy
+  - pip
+  - python==3.9.7
+  - pytorch
+  - pytorch-scatter==2.0.9  # RetroKNN
+  - rdchiral_cpp            # MHNreact
+  - rdkit=2021.09.4

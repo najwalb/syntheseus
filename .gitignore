@@ -33,3 +33,4 @@ MANIFEST
 .coverage
 .coverage.*
 *.sif
+experiments/

@@ -5,5 +5,9 @@ channels:
 dependencies:
   - numpy
   - pip
-  - python>=3.8  # ideally 3.9+
+  #- python>=3.8  # ideally 3.9+
+  - python=3.9.7
   - rdkit
+
+# torch
+# dgl 1.0.0 (for local retro, retorknn)
