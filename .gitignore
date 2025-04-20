@@ -32,3 +32,4 @@ MANIFEST
 # Unit test / coverage reports
 .coverage
 .coverage.*
+*.sif
