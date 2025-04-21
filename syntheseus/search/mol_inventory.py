@@ -41,10 +41,16 @@ class ExplicitMolInventory(BaseMolInventory):
 class SmilesListInventory(ExplicitMolInventory):
     """Most common type of inventory: a list of purchasable SMILES."""
 
-    def __init__(self, smiles_list: list[str], canonicalize: bool = True):
-        all_mols = [
-            Molecule(s, make_rdkit_mol=False, canonicalize=canonicalize) for s in smiles_list
-        ]
+    def __init__(self, smiles_list: list[str], canonicalize: bool = True, print_every: int = 1000):
+        print(f'======= canonicalizing {len(smiles_list)} molecules')
+        all_mols = []
+        for i, s in enumerate(smiles_list):
+            if i % print_every == 0:
+                print(f'======= canonicalized {i} molecules')
+            all_mols.append(Molecule(s, make_rdkit_mol=False, canonicalize=canonicalize))
+        # all_mols = [
+        #     Molecule(s, make_rdkit_mol=False, canonicalize=canonicalize) for s in smiles_list
+        # ]
         self._mol_set = set(all_mols)
 
     def is_purchasable(self, mol: Molecule) -> bool:

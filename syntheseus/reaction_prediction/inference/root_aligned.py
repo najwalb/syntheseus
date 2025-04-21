@@ -56,6 +56,7 @@ class RootAlignedModel(ExternalBackwardReactionModel):
 
         opt.models = [get_unique_file_in_dir(self.model_dir, pattern="*.pt")]
         opt.output = "/dev/null"
+        print(f'========= self.device: {self.device}')
         opt.gpu = -1 if self.device == "cpu" else torch.device(self.device).index
 
         setattr(opt, "synthon", False)

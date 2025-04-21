@@ -9,7 +9,6 @@ Parts of this file are based on code from the GitHub repository above.
 
 from pathlib import Path
 from typing import Any, List, Sequence
-
 from syntheseus.interface.molecule import Molecule
 from syntheseus.interface.reaction import SingleProductReaction
 from syntheseus.reaction_prediction.inference.base import ExternalBackwardReactionModel

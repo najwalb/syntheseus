@@ -34,3 +34,10 @@ MANIFEST
 .coverage.*
 *.sif
 experiments/
+*_checkpoints/
+*-container/
+myenv/
+data/
+jobs/
+output/
+*.job
