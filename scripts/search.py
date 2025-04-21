@@ -2,7 +2,7 @@ import os
 os.environ["PYTHONWARNINGS"] = "ignore::UserWarning"
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning, module="onmt")
-
+import hydra
 import time
 import pickle
 import pandas as pd
@@ -13,7 +13,7 @@ from syntheseus.search.graph.and_or import AndNode, OrNode, AndOrGraph
 from syntheseus.search.node_evaluation.common import ReactionModelLogProbCost
 from syntheseus.reaction_prediction.inference import RootAlignedModel, LocalRetroModel
 from syntheseus.search.mol_inventory import SmilesListInventory
-from syntheseus.search.node_evaluation.common import ConstantNodeEvaluator
+from syntheseus.search.node_evaluation.common import ConstantNodeEvaluator, SynDistNodeEvaluator
 from syntheseus.search.algorithms.breadth_first import (
     AndOr_BreadthFirstSearch
 )
@@ -35,7 +35,8 @@ RXN_MODEL_CALL_LIMIT = 2 # 100
 TIME_LIMIT_S = 5 # 300
 PROJECT_ROOT = Path(os.path.realpath(__file__)).parents[1]
 
-if __name__ == "__main__":
+@hydra.main(config_path='./config', config_name='config.yaml')
+def main(config):
     # Set up a reaction model with caching enabled. Number of reactions
     # to request from the model at each step of the search needs to be
     # provided at construction time.
@@ -99,7 +100,13 @@ if __name__ == "__main__":
     # 3: search heuristic (value function)
     # Here we just use a constant value function which is always 0,
     # corresponding to the "retro*-0" algorithm (the most optimistic).
-    retro_star_value_function = ConstantNodeEvaluator(0.0)
+    #retro_star_value_function = ConstantNodeEvaluator(0.0)
+    retro_star_value_function = SynDistNodeEvaluator(
+                                     value_model_path=os.path.join(PROJECT_ROOT,
+                                      'scripts',
+                                      'data',
+                                      'desp_data',
+                                      'retro_value_model.pth'))
         
     search_algorithm = retro_star.RetroStarSearch(
         reaction_model=model,
@@ -135,3 +142,6 @@ if __name__ == "__main__":
     #     visualize_andor(
     #         output_graph, filename=os.path.join('experiments', f"route_{idx + 1}.pdf"), nodes=route
     #     )
+
+if __name__ == "__main__":
+    main()
