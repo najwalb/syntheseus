@@ -45,3 +45,4 @@ data/
 jobs/
 output/
 *.job
+outputs/
