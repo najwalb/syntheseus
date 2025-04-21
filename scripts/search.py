@@ -2,7 +2,7 @@ import os
 os.environ["PYTHONWARNINGS"] = "ignore::UserWarning"
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning, module="onmt")
-import json
+
 import time
 import pickle
 import pandas as pd
@@ -33,7 +33,7 @@ logging.basicConfig(
 # Some constants for all algorithms
 RXN_MODEL_CALL_LIMIT = 2 # 100
 TIME_LIMIT_S = 5 # 300
-PROJECT_ROOT = Path(os.path.realpath(__file__)).parents[1]  
+PROJECT_ROOT = Path(os.path.realpath(__file__)).parents[1]
 
 if __name__ == "__main__":
     # Set up a reaction model with caching enabled. Number of reactions
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     # provided at construction time.
     smi = 'OCCN1CCC(c2ccc3c(c2)-n2nc(-c4ncnn4CC(F)(F)F)cc2CCO3)CC1'
     test_mol = Molecule(smi)
-    #model = LocalRetroModel(use_cache=True, default_num_results=10)
+    # model = LocalRetroModel(use_cache=True, default_num_results=10)
     model = RootAlignedModel(use_cache=True, 
                              default_num_results=1,# 10
                              model_dir=os.path.join(PROJECT_ROOT,

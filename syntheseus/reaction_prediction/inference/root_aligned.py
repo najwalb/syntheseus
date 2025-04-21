@@ -27,7 +27,6 @@ from syntheseus.reaction_prediction.utils.inference import (
     process_raw_smiles_outputs_backwards,
 )
 
-
 class RootAlignedModel(ExternalBackwardReactionModel):
     def __init__(
         self,
@@ -43,7 +42,6 @@ class RootAlignedModel(ExternalBackwardReactionModel):
         - `model_dir` contains the model checkpoint as the only `*.pt` file
         - `model_dir` contains the config as the only `*.yml` file
         """
-        print(f'in init')
         super().__init__(*args, **kwargs)
 
         #Parse arguments for calling external functions from `root_aligned/OpenNMT.py`.
