@@ -34,3 +34,5 @@ MANIFEST
 .coverage.*
 
 experiments/
+data/
+notebooks/

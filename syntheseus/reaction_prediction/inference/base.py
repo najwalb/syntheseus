@@ -36,7 +36,15 @@ class ExternalReactionModel(ReactionModel[InputType, ReactionType]):
 
     @property
     def name(self) -> str:
-        return self.__class__.__name__.removesuffix("Model")
+        class_name = self.__class__.__name__
+        if class_name.endswith("Model"):
+            return class_name[:-5]  # Remove "Model" suffix
+        return class_name
+
+    # NOTE: the code below uses later version of python
+    # @property
+    # def name(self) -> str:
+    #     return self.__class__.__name__.removesuffix("Model")
 
 
 class ExternalBackwardReactionModel(ExternalReactionModel, BackwardReactionModel):
