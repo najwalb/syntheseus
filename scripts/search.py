@@ -31,8 +31,8 @@ logging.basicConfig(
 )
 
 # Some constants for all algorithms
-RXN_MODEL_CALL_LIMIT = 2 # 100
-TIME_LIMIT_S = 5 # 300
+RXN_MODEL_CALL_LIMIT = 100 # 100
+TIME_LIMIT_S = 600 # 300
 PROJECT_ROOT = Path(os.path.realpath(__file__)).parents[1]
 
 if __name__ == "__main__":
@@ -43,10 +43,10 @@ if __name__ == "__main__":
     test_mol = Molecule(smi)
     # model = LocalRetroModel(use_cache=True, default_num_results=10)
     model = RootAlignedModel(use_cache=True, 
-                             default_num_results=1,# 10
+                             default_num_results=100,# 10
                              model_dir=os.path.join(PROJECT_ROOT,
                                                     'scripts',
-                                                    'rsmiles_checkpoints'))
+                                                    'rsmiles_full_no_overlap_checkpoints'))
 
     # Dummy inventory with just two purchasable molecules.
     print(f'======= loading bbs')
@@ -119,13 +119,31 @@ if __name__ == "__main__":
     #     time_limit_s=60.0  # max runtime in seconds
     # )
     search_algorithm.reset()
+    start_time = time.time()
     print(f'======= running search')
     output_graph, _ = search_algorithm.run_from_mol(test_mol)
-    print(f"Explored {len(output_graph)} nodes")
+    print(f"Explored {len(output_graph)} nodes in {time.time() - start_time} seconds.")
 
+    # save output graph 
+    print(f'======= saving output graph')
+    start_time = time.time()
+    output_graph_dir = os.path.join(PROJECT_ROOT,
+                                     'scripts',
+                                     'experiments',
+                                     f'retroStar_root_aligned_callsLimit{RXN_MODEL_CALL_LIMIT}_timeLimit{TIME_LIMIT_S}', # experiment subfolder
+                                     'graphs')
+    os.makedirs(output_graph_dir, exist_ok=True)
+    output_graph_path = os.path.join(output_graph_dir,
+                                     f'output_graph.pkl')
+    with open(output_graph_path, 'wb') as f:
+        pickle.dump(output_graph, f)
+    print(f'======= saved output graph to {output_graph_path} in {time.time() - start_time} seconds')
+    
     # # Extract the routes simply in the order they were found.
+    print(f'======= extracting routes')
+    start_time = time.time()
     routes = list(iter_routes_time_order(output_graph, max_routes=10))
-    print(f'found {len(routes)} routes')
+    print(f'Extracted {len(routes)} routes in {time.time() - start_time} seconds')
 
     for idx, route in enumerate(routes):
         num_reactions = len({n for n in route if isinstance(n, AndNode)})

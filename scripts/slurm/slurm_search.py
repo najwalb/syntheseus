@@ -37,8 +37,8 @@ slurm_args = {
 }
 # ablations: autoregressive with 1,5,10,20 data augmentation
 time_stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-experiment_yml = 'conifg.yaml'
-task = 'train' if 'debug' not in experiment_yml else 'debug'
+#experiment_yml = 'conifg.yaml'
+task = 'search'
 # script_args = {"script_dir": SCRIPT_DIR,
 #                "args": {"+experiment": experiment_yml}}
 script_args = {"script_dir": SCRIPT_DIR,
@@ -46,7 +46,7 @@ script_args = {"script_dir": SCRIPT_DIR,
 augmentations = [1]
 for augmentation in augmentations:
     #experiment_name = f'{experiment_yml.split(".")[0]}_aug{augmentation}_{time_stamp}'  
-    experiment_name = f'search_test'  
+    experiment_name = f'test'  
     script_args['script_name'] = 'search.py'
     slurm_args['job_name'] = f'{task}_{experiment_name}'
     # experiment_dir = os.path.join(PROJECT_ROOT, 'experiments', experiment_name)
@@ -58,4 +58,4 @@ for augmentation in augmentations:
     # slurm_args['output_dir'] = experiment_dir
     # slurm_args['job_dir'] = experiment_dir
     output = create_and_submit_batch_job(slurm_args, script_args, interactive=args.interactive)
-    print(output)
+    #print(output)
