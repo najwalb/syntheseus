@@ -32,6 +32,10 @@ MANIFEST
 # Unit test / coverage reports
 .coverage
 .coverage.*
+
+experiments/
+data/
+notebooks/
 *.sif
 experiments/
 *_checkpoints/

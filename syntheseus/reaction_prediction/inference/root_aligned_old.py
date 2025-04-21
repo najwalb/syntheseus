@@ -12,7 +12,6 @@ import math
 import multiprocessing
 import random
 import warnings
-import torch
 from collections import defaultdict
 from typing import Any, List, Optional, Sequence
 from functools import partial
@@ -34,7 +33,6 @@ class RootAlignedModel(ExternalBackwardReactionModel):
         *args,
         num_augmentations: int = 20,
         probability_from_score_temperature: Optional[float] = 2.0,
-        with_classifier_guidance: bool = False,
         **kwargs,
     ) -> None:
         """Initializes the RootAligned model wrapper.
@@ -43,7 +41,7 @@ class RootAlignedModel(ExternalBackwardReactionModel):
         - `model_dir` contains the model checkpoint as the only `*.pt` file
         - `model_dir` contains the config as the only `*.yml` file
         """
-        print(f'in init')
+        
         super().__init__(*args, **kwargs)
 
         #Parse arguments for calling external functions from `root_aligned/OpenNMT.py`.
@@ -58,7 +56,6 @@ class RootAlignedModel(ExternalBackwardReactionModel):
 
         opt.models = [get_unique_file_in_dir(self.model_dir, pattern="*.pt")]
         opt.output = "/dev/null"
-        print(f'========= self.device: {self.device}')
         opt.gpu = -1 if self.device == "cpu" else torch.device(self.device).index
 
         setattr(opt, "synthon", False)
@@ -79,7 +76,6 @@ class RootAlignedModel(ExternalBackwardReactionModel):
         self.num_augmentations = num_augmentations
         self.probability_from_score_temperature = probability_from_score_temperature
         self.beam_size = opt.beam_size
-        self.with_classifier_guidance = with_classifier_guidance
 
     def get_parameters(self):
         """Return the model parameters."""
@@ -154,61 +150,6 @@ class RootAlignedModel(ExternalBackwardReactionModel):
 
         return kwargs_list
 
-    # Create a custom translation function with guidance
-    def translate_with_classifier_guidance(self, model, src_data, property='synthesizability', guidance_scale=1.0):
-        # Set to eval mode but enable gradients
-        model.eval()
-        batch_size = len(src_data)
-        max_length = 100
-        device = model.device
-        guidance_scale = 1.0
-        with torch.enable_grad():  # Need gradients for guidance
-            # Initial steps similar to translator.translate()
-            # Process source, get encoder outputs
-            enc_outputs, memory_bank, src_lengths = model.encoder(src_data)
-            
-            # Initialize decoder states
-            dec_states = model.decoder.init_decoder_state(src_data, memory_bank, enc_outputs)
-            
-            # Start with BOS token
-            inp = torch.full([batch_size], model.bos_token_id, dtype=torch.long, device=device)
-            
-            # Generate tokens step by step
-            output_sequence = []
-            for step in range(max_length):
-                # Get decoder output probabilities
-                dec_out, dec_states, _ = model.decoder(inp, memory_bank, dec_states)
-                log_probs = model.generator(dec_out)
-                
-                # Apply classifier guidance
-                # Create token embeddings for classifier
-                token_embeddings = model.decoder.embeddings(inp)
-                
-                # Get classifier scores (adjust based on your classifier interface)
-                classifier_scores = classifier(token_embeddings)
-                
-                # Compute gradients of classifier score w.r.t. log_probs
-                classifier_scores.backward(retain_graph=True)
-                
-                # Get gradients
-                guidance_gradients = log_probs.grad
-                
-                # Apply guidance to log_probs
-                guided_log_probs = log_probs + guidance_scale * guidance_gradients
-                
-                # Sample from guided distribution
-                next_token = guided_log_probs.argmax(dim=-1)
-                
-                output_sequence.append(next_token)
-                inp = next_token
-                
-                # Check for end condition
-                if all(token == model.eos_token_id for token in next_token):
-                    break
-                    
-        return output_sequence
-
-
     def _get_reactions(
         self, inputs, num_results: int, random_augmentation=False
     ) -> List[Sequence[SingleProductReaction]]:
@@ -258,24 +199,18 @@ class RootAlignedModel(ExternalBackwardReactionModel):
         augmented_batch = self._mols_to_batch(augmented_inputs)
 
         # Step 3: Translate.
-        print(f'self.with_classifier_guidance: {self.with_classifier_guidance}')
-        if self.with_classifier_guidance:
-            augmented_predictions = self.translate_with_classifier_guidance(model=self.translator.model,
-                                                                            src_data=augmented_batch,
-                                                                            guidance_scale=1.0)
-        else:
-            with warnings.catch_warnings():
-                warnings.filterwarnings("ignore", message="__floordiv__ is deprecated")
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message="__floordiv__ is deprecated")
 
-                _, augmented_predictions = self.translator.translate(
-                    src=augmented_batch,
-                    src_feats=defaultdict(list),
-                    tgt=None,
-                    batch_size=2048,
-                    batch_type="tokens",
-                    attn_debug=False,
-                    align_debug=False,
-                )  # shape: `[data_size x augmentation_size, beam_size]`
+            _, augmented_predictions = self.translator.translate(
+                src=augmented_batch,
+                src_feats=defaultdict(list),
+                tgt=None,
+                batch_size=2048,
+                batch_type="tokens",
+                attn_debug=False,
+                align_debug=False,
+            )  # shape: `[data_size x augmentation_size, beam_size]`
 
         # Step 4: Unravel and canonicalize.
         lines = []  # shape: `[data_size x augmentation_size x beam_size]`
