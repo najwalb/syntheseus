@@ -13,7 +13,7 @@ from syntheseus.search.graph.and_or import AndNode, OrNode, AndOrGraph
 from syntheseus.search.node_evaluation.common import ReactionModelLogProbCost
 from syntheseus.reaction_prediction.inference import RootAlignedModel, LocalRetroModel
 from syntheseus.search.mol_inventory import SmilesListInventory
-from syntheseus.search.node_evaluation.common import ConstantNodeEvaluator, SynDistNodeEvaluator
+from syntheseus.search.node_evaluation.common import ConstantNodeEvaluator, ValueNodeEvaluator
 from syntheseus.search.algorithms.breadth_first import (
     AndOr_BreadthFirstSearch
 )
@@ -31,11 +31,11 @@ logging.basicConfig(
 )
 
 # Some constants for all algorithms
-RXN_MODEL_CALL_LIMIT = 2 # 100
-TIME_LIMIT_S = 5 # 300
+RXN_MODEL_CALL_LIMIT = 100 # 100
+TIME_LIMIT_S = 600 # 300
 PROJECT_ROOT = Path(os.path.realpath(__file__)).parents[1]
 
-@hydra.main(config_path='./config', config_name='config.yaml')
+@hydra.main(config_path='./configs', config_name='config.yaml')
 def main(config):
     # Set up a reaction model with caching enabled. Number of reactions
     # to request from the model at each step of the search needs to be
@@ -44,10 +44,10 @@ def main(config):
     test_mol = Molecule(smi)
     # model = LocalRetroModel(use_cache=True, default_num_results=10)
     model = RootAlignedModel(use_cache=True, 
-                             default_num_results=1,# 10
+                             default_num_results=100,# 10
                              model_dir=os.path.join(PROJECT_ROOT,
                                                     'scripts',
-                                                    'rsmiles_checkpoints'))
+                                                    'rsmiles_full_no_overlap_checkpoints'))
 
     # Dummy inventory with just two purchasable molecules.
     print(f'======= loading bbs')
@@ -101,12 +101,12 @@ def main(config):
     # Here we just use a constant value function which is always 0,
     # corresponding to the "retro*-0" algorithm (the most optimistic).
     #retro_star_value_function = ConstantNodeEvaluator(0.0)
-    retro_star_value_function = SynDistNodeEvaluator(
+    retro_star_value_function = ValueNodeEvaluator(
                                      value_model_path=os.path.join(PROJECT_ROOT,
                                       'scripts',
                                       'data',
                                       'desp_data',
-                                      'retro_value_model.pth'))
+                                      'retro_value.pt'))
         
     search_algorithm = retro_star.RetroStarSearch(
         reaction_model=model,
@@ -126,13 +126,31 @@ def main(config):
     #     time_limit_s=60.0  # max runtime in seconds
     # )
     search_algorithm.reset()
+    start_time = time.time()
     print(f'======= running search')
     output_graph, _ = search_algorithm.run_from_mol(test_mol)
-    print(f"Explored {len(output_graph)} nodes")
+    print(f"Explored {len(output_graph)} nodes in {time.time() - start_time} seconds.")
 
+    # save output graph 
+    print(f'======= saving output graph')
+    start_time = time.time()
+    output_graph_dir = os.path.join(PROJECT_ROOT,
+                                     'scripts',
+                                     'experiments',
+                                     f'test1_root_aligned_callsLimit{RXN_MODEL_CALL_LIMIT}_timeLimit{TIME_LIMIT_S}', # experiment subfolder
+                                     'graphs')
+    os.makedirs(output_graph_dir, exist_ok=True)
+    output_graph_path = os.path.join(output_graph_dir,
+                                     f'output_graph.pkl')
+    with open(output_graph_path, 'wb') as f:
+        pickle.dump(output_graph, f)
+    print(f'======= saved output graph to {output_graph_path} in {time.time() - start_time} seconds')
+    
     # # Extract the routes simply in the order they were found.
-    routes = list(iter_routes_time_order(output_graph, max_routes=10))
-    print(f'found {len(routes)} routes')
+    print(f'======= extracting routes')
+    start_time = time.time()
+    routes = list(iter_routes_time_order(output_graph, max_routes=100))
+    print(f'Extracted {len(routes)} routes in {time.time() - start_time} seconds')
 
     for idx, route in enumerate(routes):
         num_reactions = len({n for n in route if isinstance(n, AndNode)})

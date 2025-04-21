@@ -151,7 +151,11 @@ class ValueNodeEvaluator(NoCacheNodeEvaluator):
 
     def _evaluate_nodes(self, nodes, graph=None):
         # get model estimates for each node
-        return [self.predict(node.reaction.product) for node in nodes]
+        print(f'nodes in _evaluate_nodes: {nodes}')
+        print(f'nodes[0].mol.smiles: {nodes[0].mol.smiles}')
+        costs = [self.predict(node.mol.smiles) for node in nodes]
+        print(f'costs in _evaluate_nodes: {costs}')
+        return costs
 
     def predict(self, target, as_item=True):
         """
@@ -164,6 +168,7 @@ class ValueNodeEvaluator(NoCacheNodeEvaluator):
             float: synthetic distance
         """
         target_fp = smiles_to_fp(target, fp_size=2048).float().unsqueeze(0)
+        target_fp = target_fp.to(self.device)
         with torch.no_grad():
             dist = self.model(target_fp)
         if as_item:

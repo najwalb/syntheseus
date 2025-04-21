@@ -44,8 +44,10 @@ class RootAlignedModel(ExternalBackwardReactionModel):
         """
         super().__init__(*args, **kwargs)
 
-        #Parse arguments for calling external functions from `root_aligned/OpenNMT.py`.
-        with open(get_unique_file_in_dir(self.model_dir, pattern="*.yml"), "r") as f:
+        #Parse arguments for calling external functions from `root_aligned/OpenNMT.py`
+        config_file_path = get_unique_file_in_dir(self.model_dir, pattern="*.yml")
+        print(f'======= config_file_path: {config_file_path}')
+        with open(config_file_path, "r") as f:
             opt_from_config = yaml.safe_load(f)
 
         import torch
@@ -53,8 +55,8 @@ class RootAlignedModel(ExternalBackwardReactionModel):
         opt = argparse.Namespace()
         for key, value in opt_from_config.items():
             setattr(opt, key, value)
-
         opt.models = [get_unique_file_in_dir(self.model_dir, pattern="*.pt")]
+        print(f'======= opt.models: {opt.models}')
         opt.output = "/dev/null"
         print(f'========= self.device: {self.device}')
         opt.gpu = -1 if self.device == "cpu" else torch.device(self.device).index
