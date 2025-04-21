@@ -78,6 +78,12 @@ class RootAlignedModel(ExternalBackwardReactionModel):
         self.probability_from_score_temperature = probability_from_score_temperature
         self.beam_size = opt.beam_size
         self.with_classifier_guidance = with_classifier_guidance
+        if self.with_classifier_guidance:
+            self.classifier = Classifier(model_path=os.path.join(PROJECT_ROOT,
+                                      'scripts',
+                                      'data',
+                                      'desp_data',
+                                      'retro_value_model.pth'))
 
     def get_parameters(self):
         """Return the model parameters."""
@@ -160,6 +166,8 @@ class RootAlignedModel(ExternalBackwardReactionModel):
         max_length = 100
         device = model.device
         guidance_scale = 1.0
+        #  we don't really need the gradients, just mixing the probabilities should be enough
+        # compare to gudiing in diffusion + fugde
         with torch.enable_grad():  # Need gradients for guidance
             # Initial steps similar to translator.translate()
             # Process source, get encoder outputs
