@@ -27,7 +27,6 @@ from syntheseus.reaction_prediction.utils.inference import (
     process_raw_smiles_outputs_backwards,
 )
 
-
 class RootAlignedModel(ExternalBackwardReactionModel):
     def __init__(
         self,
