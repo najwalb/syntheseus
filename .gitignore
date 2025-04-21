@@ -36,3 +36,5 @@ MANIFEST
 experiments/
 data/
 notebooks/
+*.sif
+experiments/
