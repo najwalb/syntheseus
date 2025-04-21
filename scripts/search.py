@@ -13,7 +13,7 @@ from syntheseus.search.graph.and_or import AndNode, OrNode, AndOrGraph
 from syntheseus.search.node_evaluation.common import ReactionModelLogProbCost
 from syntheseus.reaction_prediction.inference import RootAlignedModel, LocalRetroModel
 from syntheseus.search.mol_inventory import SmilesListInventory
-from syntheseus.search.node_evaluation.common import ConstantNodeEvaluator, SynDistNodeEvaluator
+from syntheseus.search.node_evaluation.common import ConstantNodeEvaluator, ValueNodeEvaluator
 from syntheseus.search.algorithms.breadth_first import (
     AndOr_BreadthFirstSearch
 )
@@ -35,7 +35,7 @@ RXN_MODEL_CALL_LIMIT = 100 # 100
 TIME_LIMIT_S = 600 # 300
 PROJECT_ROOT = Path(os.path.realpath(__file__)).parents[1]
 
-@hydra.main(config_path='./config', config_name='config.yaml')
+@hydra.main(config_path='./configs', config_name='config.yaml')
 def main(config):
     # Set up a reaction model with caching enabled. Number of reactions
     # to request from the model at each step of the search needs to be
@@ -101,12 +101,12 @@ def main(config):
     # Here we just use a constant value function which is always 0,
     # corresponding to the "retro*-0" algorithm (the most optimistic).
     #retro_star_value_function = ConstantNodeEvaluator(0.0)
-    retro_star_value_function = SynDistNodeEvaluator(
+    retro_star_value_function = ValueNodeEvaluator(
                                      value_model_path=os.path.join(PROJECT_ROOT,
                                       'scripts',
                                       'data',
                                       'desp_data',
-                                      'retro_value_model.pth'))
+                                      'retro_value.pt'))
         
     search_algorithm = retro_star.RetroStarSearch(
         reaction_model=model,
@@ -137,7 +137,7 @@ def main(config):
     output_graph_dir = os.path.join(PROJECT_ROOT,
                                      'scripts',
                                      'experiments',
-                                     f'retroStar_root_aligned_callsLimit{RXN_MODEL_CALL_LIMIT}_timeLimit{TIME_LIMIT_S}', # experiment subfolder
+                                     f'test1_root_aligned_callsLimit{RXN_MODEL_CALL_LIMIT}_timeLimit{TIME_LIMIT_S}', # experiment subfolder
                                      'graphs')
     os.makedirs(output_graph_dir, exist_ok=True)
     output_graph_path = os.path.join(output_graph_dir,
@@ -149,7 +149,7 @@ def main(config):
     # # Extract the routes simply in the order they were found.
     print(f'======= extracting routes')
     start_time = time.time()
-    routes = list(iter_routes_time_order(output_graph, max_routes=10))
+    routes = list(iter_routes_time_order(output_graph, max_routes=100))
     print(f'Extracted {len(routes)} routes in {time.time() - start_time} seconds')
 
     for idx, route in enumerate(routes):
