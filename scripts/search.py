@@ -50,16 +50,6 @@ def main(config):
                                                     'rsmiles_full_no_overlap_checkpoints'))
 
     # Dummy inventory with just two purchasable molecules.
-    print(f'======= loading bbs')
-    start_time = time.time()
-    bb_mol2idx = os.path.join(PROJECT_ROOT,
-                              'scripts',
-                              'data',
-                              'desp_data',
-                              'origin_dict.csv')
-    df = pd.read_csv(bb_mol2idx, index_col=0)
-    bbs = df['mol'].tolist()
-    print(f'loaded bbs in {time.time() - start_time} seconds')
     print(f'======= creating inventory')
     start_time = time.time()
     inventory_path = os.path.join(PROJECT_ROOT,
@@ -71,6 +61,16 @@ def main(config):
         with open(inventory_path, 'rb') as f:
             inventory = pickle.load(f)
     else:
+        print(f'======= loading bbs')
+        start_time = time.time()
+        bb_mol2idx = os.path.join(PROJECT_ROOT,
+                                'scripts',
+                                'data',
+                                'desp_data',
+                                'origin_dict.csv')
+        df = pd.read_csv(bb_mol2idx, index_col=0)
+        bbs = df['mol'].tolist()
+        print(f'loaded bbs in {time.time() - start_time} seconds')
         inventory = SmilesListInventory(
             smiles_list=bbs,
             print_every=1000000
@@ -102,12 +102,14 @@ def main(config):
     # corresponding to the "retro*-0" algorithm (the most optimistic).
     #retro_star_value_function = ConstantNodeEvaluator(0.0)
     retro_star_value_function = ValueNodeEvaluator(
-                                     value_model_path=os.path.join(PROJECT_ROOT,
+                                    value_model_path=os.path.join(PROJECT_ROOT,
                                       'scripts',
                                       'data',
                                       'desp_data',
-                                      'retro_value.pt'))
+                                      'retro_value.pt')
+                                )
         
+    print(f'retro_star_value_function {retro_star_value_function}\n')
     search_algorithm = retro_star.RetroStarSearch(
         reaction_model=model,
         mol_inventory=inventory,
@@ -137,7 +139,7 @@ def main(config):
     output_graph_dir = os.path.join(PROJECT_ROOT,
                                      'scripts',
                                      'experiments',
-                                     f'test1_root_aligned_callsLimit{RXN_MODEL_CALL_LIMIT}_timeLimit{TIME_LIMIT_S}', # experiment subfolder
+                                     f'retroStar_root_aligned_callsLimit{RXN_MODEL_CALL_LIMIT}_timeLimit{TIME_LIMIT_S}', # experiment subfolder
                                      'graphs')
     os.makedirs(output_graph_dir, exist_ok=True)
     output_graph_path = os.path.join(output_graph_dir,

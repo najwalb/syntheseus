@@ -151,10 +151,9 @@ class ValueNodeEvaluator(NoCacheNodeEvaluator):
 
     def _evaluate_nodes(self, nodes, graph=None):
         # get model estimates for each node
-        print(f'nodes in _evaluate_nodes: {nodes}')
         print(f'nodes[0].mol.smiles: {nodes[0].mol.smiles}')
         costs = [self.predict(node.mol.smiles) for node in nodes]
-        print(f'costs in _evaluate_nodes: {costs}')
+        print(f'costs in _evaluate_nodes: {costs[0]}')
         return costs
 
     def predict(self, target, as_item=True):

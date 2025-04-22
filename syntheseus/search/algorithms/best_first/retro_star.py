@@ -114,7 +114,7 @@ class RetroStarSearch(
 
     def _set_reaction_number_estimate(self, or_nodes: Sequence[OrNode], graph: AndOrGraph) -> None:
         costs = self.reaction_number_estimator(or_nodes, graph=graph)
-        print(f'in rn estimatecosts: {costs}, or_nodes: {or_nodes}')
+        #print(f'in rn estimatecosts: {costs}, or_nodes: {or_nodes}')
         assert len(costs) == len(or_nodes)
         for node, cost in zip(or_nodes, costs):
             node.data["reaction_number_estimate"] = cost
