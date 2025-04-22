@@ -40,44 +40,23 @@ def main(config):
     # Set up a reaction model with caching enabled. Number of reactions
     # to request from the model at each step of the search needs to be
     # provided at construction time.
-    smi = 'OCCN1CCC(c2ccc3c(c2)-n2nc(-c4ncnn4CC(F)(F)F)cc2CCO3)CC1'
-    test_mol = Molecule(smi)
+
+    test_mol = Molecule("Cc1ccc(-c2ccc(C)cc2)cc1")
+
     # model = LocalRetroModel(use_cache=True, default_num_results=10)
     model = RootAlignedModel(use_cache=True, 
                              default_num_results=100,# 10
                              model_dir=os.path.join(PROJECT_ROOT,
                                                     'scripts',
-                                                    'rsmiles_full_no_overlap_checkpoints'))
+                                                    'rsmiles_full_no_overlap_checkpoints'),
+                             with_classifier_guidance=True)
 
     # Dummy inventory with just two purchasable molecules.
     print(f'======= loading bbs')
     start_time = time.time()
-    inventory_path = os.path.join(PROJECT_ROOT,
-                                  'scripts',
-                                  'data',
-                                  'desp_data',
-                                  'inventory.pkl')
-    if os.path.exists(inventory_path):
-        with open(inventory_path, 'rb') as f:
-            inventory = pickle.load(f)
-    else:
-        bb_mol2idx = os.path.join(PROJECT_ROOT,
-                              'scripts',
-                              'data',
-                              'desp_data',
-                              'origin_dict.csv')
-        df = pd.read_csv(bb_mol2idx, index_col=0)
-        bbs = df['mol'].tolist()
-        print(f'loaded bbs in {time.time() - start_time} seconds')
-        print(f'======= creating inventory')
-        inventory = SmilesListInventory(
-            smiles_list=bbs,
-            print_every=1000000
-        )
-        # save inventory in a pickle file
-        with open(inventory_path, 'wb') as f:
-            pickle.dump(inventory, f)
-
+    inventory = SmilesListInventory(
+        smiles_list=["Cc1ccc(B(O)O)cc1", "O=Cc1ccc(I)cc1"]
+    )
     print(f'created inventory in {time.time() - start_time} seconds')
     # 1: OrNode cost function.
     # We will follow the original paper and give molecules a
@@ -137,7 +116,7 @@ def main(config):
     output_graph_dir = os.path.join(PROJECT_ROOT,
                                      'scripts',
                                      'experiments',
-                                     f'test1_root_aligned_callsLimit{RXN_MODEL_CALL_LIMIT}_timeLimit{TIME_LIMIT_S}', # experiment subfolder
+                                     f'debug_root_aligned_callsLimit{RXN_MODEL_CALL_LIMIT}_timeLimit{TIME_LIMIT_S}', # experiment subfolder
                                      'graphs')
     os.makedirs(output_graph_dir, exist_ok=True)
     output_graph_path = os.path.join(output_graph_dir,

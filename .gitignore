@@ -46,3 +46,4 @@ jobs/
 output/
 *.job
 outputs/
+.vscode/

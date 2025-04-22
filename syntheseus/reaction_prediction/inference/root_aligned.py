@@ -13,6 +13,8 @@ import multiprocessing
 import random
 import warnings
 import torch
+import torch.nn as nn
+import os
 from collections import defaultdict
 from typing import Any, List, Optional, Sequence
 from functools import partial
@@ -26,6 +28,117 @@ from syntheseus.reaction_prediction.utils.inference import (
     get_unique_file_in_dir,
     process_raw_smiles_outputs_backwards,
 )
+
+# class AtomCountClassifier(nn.Module):
+#     def __init__(self, a, b, sigma):
+#         super().__init__()
+#         self.a = a
+#         self.b = b
+#         self.sigma = sigma
+
+#     def forward(self, *args, **kwargs):
+#         out = torch.sigmoid(((args[0] - self.a) / self.b)**self.sigma)
+#         return out
+    
+    
+class AtomCountClassifier(nn.Module):
+    def __init__(self, target_size=20, scale=5.0, gamma=2.0, tokenizer=None):
+        """
+        A simple heuristic for estimating if a molecule will be small based on current sequence.
+        
+        Args:
+            target_size: Target number of atoms (smaller values prefer smaller molecules)
+            scale: Scaling factor for the sigmoid function
+            gamma: Sharpness parameter for the sigmoid
+        """
+        super().__init__()
+        self.target_size = target_size
+        self.scale = scale
+        self.gamma = gamma
+        self.tokenizer = tokenizer
+
+    def forward(self, *args, **kwargs):
+        return 1.
+        
+    def forward_(self, original_scores):
+        """
+        Apply a heuristic to predict if the molecule will be small.
+        
+        Args:
+            input_ids: The current token sequence
+            tokenizer: The tokenizer for decoding (if needed)
+            
+        Returns:
+            Scores favoring smaller molecules
+        """
+        # 1. Simple token counting strategy
+        # Count tokens that likely indicate atoms/bonds
+        
+        # Estimate current size and projected final size
+        input_ids = args[0]
+        seq_length = input_ids.shape[1]
+        
+        # Heuristic 1: Use sequence length directly
+        # The longer the sequence, the larger the molecule is likely to be
+        estimated_size = seq_length
+        
+        # Heuristic 2: If you have a way to count atoms specifically in your tokens
+        # This is a placeholder - adjust based on your token patterns
+        if self.tokenizer:
+            # Count tokens representing atoms (this is highly tokenizer-specific)
+            # Example implementation - adapt to your tokenization scheme
+            atom_tokens = set([self.    tokenizer.convert_tokens_to_ids(t) for t in 
+                              ['C', 'N', 'O', 'S', 'F', 'Cl', 'Br', 'P']])
+            
+            # Count atom tokens in sequence
+            atom_count = sum(1 for t in input_ids[0].tolist() if t in atom_tokens)
+            estimated_size = atom_count
+        
+        # Calculate how far we are from target size
+        # Positive values mean we're below target (good)
+        # Negative values mean we're above target (bad)
+        size_difference = self.target_size - estimated_size
+        
+        # Convert to probability using sigmoid
+        # Higher probability = more likely to be a small molecule
+        probability = torch.sigmoid(self.gamma * size_difference / self.scale)
+        
+        # Ensure tensor shape and type
+        return torch.tensor(probability, device=input_ids.device).view(-1, 1)
+    
+# Create a wrapper for the generator that adds your classifier guidance
+class ClassifierGuidedGenerator(nn.Module):
+    def __init__(self, original_generator, src, classifier_model, guidance_scale=1.0):
+        super().__init__()
+        self.original_generator = original_generator
+        self.classifier_model = classifier_model
+        self.guidance_scale = guidance_scale
+        self.src = src
+
+    def forward(self, *args, **kwargs):
+        # Get the original scores from the translator's generator
+        # TODO: what input goes here? need partially completed sequence
+        original_scores = self.original_generator(*args, **kwargs)
+        
+        # Apply your classifier guidance/bias
+        # The exact implementation depends on your classifier and how you want to combine scores
+        classifier_scores = self.classifier_model(*args, **kwargs)  # or whatever inputs your classifier needs
+        
+        # Combine scores (e.g., add, multiply, etc.)
+        # This is similar to your pseudocode: original_scores + my_own_bias
+        modified_scores = self.combine_scores(original_scores, classifier_scores)
+        
+        return modified_scores
+    
+    def combine_scores(self, original_scores, classifier_scores):
+        # Implement your score combination logic
+        # Could be simple addition with a weight parameter
+        # return original_scores + (lambda_weight * classifier_scores)
+        # Or more complex combinations
+        combined_log_probs = original_scores + self.guidance_scale * classifier_scores  # Simplified example
+        log_sum = torch.logsumexp(combined_log_probs, dim=-1, keepdim=True)
+        normalized_log_probs = combined_log_probs - log_sum
+        return normalized_log_probs
 
 class RootAlignedModel(ExternalBackwardReactionModel):
     def __init__(
@@ -81,11 +194,7 @@ class RootAlignedModel(ExternalBackwardReactionModel):
         self.beam_size = opt.beam_size
         self.with_classifier_guidance = with_classifier_guidance
         if self.with_classifier_guidance:
-            self.classifier = Classifier(model_path=os.path.join(PROJECT_ROOT,
-                                      'scripts',
-                                      'data',
-                                      'desp_data',
-                                      'retro_value_model.pth'))
+            self.classifier = AtomCountClassifier()
 
     def get_parameters(self):
         """Return the model parameters."""
@@ -161,60 +270,31 @@ class RootAlignedModel(ExternalBackwardReactionModel):
         return kwargs_list
 
     # Create a custom translation function with guidance
-    def translate_with_classifier_guidance(self, model, src_data, property='synthesizability', guidance_scale=1.0):
+    def translate_with_classifier_guidance(self,
+                                           model,
+                                           src,
+                                           property='synthesizability',
+                                           guidance_scale=1.0):
         # Set to eval mode but enable gradients
         model.eval()
-        batch_size = len(src_data)
-        max_length = 100
-        device = model.device
-        guidance_scale = 1.0
-        #  we don't really need the gradients, just mixing the probabilities should be enough
-        # compare to gudiing in diffusion + fugde
-        with torch.enable_grad():  # Need gradients for guidance
-            # Initial steps similar to translator.translate()
-            # Process source, get encoder outputs
-            enc_outputs, memory_bank, src_lengths = model.encoder(src_data)
-            
-            # Initialize decoder states
-            dec_states = model.decoder.init_decoder_state(src_data, memory_bank, enc_outputs)
-            
-            # Start with BOS token
-            inp = torch.full([batch_size], model.bos_token_id, dtype=torch.long, device=device)
-            
-            # Generate tokens step by step
-            output_sequence = []
-            for step in range(max_length):
-                # Get decoder output probabilities
-                dec_out, dec_states, _ = model.decoder(inp, memory_bank, dec_states)
-                log_probs = model.generator(dec_out)
-                
-                # Apply classifier guidance
-                # Create token embeddings for classifier
-                token_embeddings = model.decoder.embeddings(inp)
-                
-                # Get classifier scores (adjust based on your classifier interface)
-                classifier_scores = classifier(token_embeddings)
-                
-                # Compute gradients of classifier score w.r.t. log_probs
-                classifier_scores.backward(retain_graph=True)
-                
-                # Get gradients
-                guidance_gradients = log_probs.grad
-                
-                # Apply guidance to log_probs
-                guided_log_probs = log_probs + guidance_scale * guidance_gradients
-                
-                # Sample from guided distribution
-                next_token = guided_log_probs.argmax(dim=-1)
-                
-                output_sequence.append(next_token)
-                inp = next_token
-                
-                # Check for end condition
-                if all(token == model.eos_token_id for token in next_token):
-                    break
-                    
-        return output_sequence
+        batch_size = len(src)
+
+        # Save the original generator
+        original_generator = self.translator.model.generator
+
+        # Create your wrapper with your classifier
+        guided_generator = ClassifierGuidedGenerator(original_generator, src, self.classifier)
+
+        # Replace the generator in the translator
+        self.translator.model.generator = guided_generator
+
+        # Now when you call translate(), it will use your guided probabilities
+        translations = self.translator.translate(src, batch_size=batch_size)
+
+        # You can always restore the original generator if needed
+        # translator.generator = original_generator
+
+        return translations
 
 
     def _get_reactions(
@@ -269,7 +349,7 @@ class RootAlignedModel(ExternalBackwardReactionModel):
         print(f'self.with_classifier_guidance: {self.with_classifier_guidance}')
         if self.with_classifier_guidance:
             augmented_predictions = self.translate_with_classifier_guidance(model=self.translator.model,
-                                                                            src_data=augmented_batch,
+                                                                            src=augmented_batch,
                                                                             guidance_scale=1.0)
         else:
             with warnings.catch_warnings():

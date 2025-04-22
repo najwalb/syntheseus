@@ -14,7 +14,7 @@ def visualize(config):
     print(config)
     experiment_path = os.path.join(PROJECT_ROOT, 
                           'experiments', 
-                          'test_root_aligned_callsLimit100_timeLimit600',
+                          'test1_root_aligned_callsLimit100_timeLimit600',
                           'graphs')
     output_graph_path = os.path.join(experiment_path, 'output_graph.pkl')
     output_graph = pickle.load(open(output_graph_path, 'rb'))
