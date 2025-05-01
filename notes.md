@@ -25,3 +25,26 @@
     - add synthesizability model to the weights before sampling
 - see what other baselines to guide and how
 - see how to add filtering step to use as a baseline too
+- adding guidance:
+    - intercepting code works? any final checks? 
+        - maybe see what the partial_seq looks like at the end
+        - also what is the src vocab used (and beg/unk index etc)
+        - decode the partial sequences to see what they look like
+    - add the synthesizability guidance: simplest model we can use and why
+        - pbbly smthg based on seq length but not taking into account the filler nodes at the end
+    - check that the scores outputted by the generator do not change anywhere in the code to confirm wrapping generator is the correct strategy
+        - collapse_copy_scores: adds the probability of the word if it exists in the source. It enforces the two ways the model can generate a word: from the tgt vocab, or copying it directly from source.
+    - shld pbbly use alive_seq actually, since it contains currently active beams. Finished beams are discarded for efficiency reasons. Hmm should think:
+        - pbbly can't really know the length of a sequence from a partially completed one...
+            - try to find a different property to guide for with a heuristic
+            - see if can train the synth classifier already
+            - maybe find a completely different toy example?
+        - do I need the info of 'finished beams' in partial seq? the goal is to choose the next token that maximizes a certain property... if a beam is finished we don't have anymore next tokens...  
+            - still need to understand if alive_seq is x_{1:i-1} or x_{1:i}? just check where the next token is chosen and how
+                - should be x_{1:i}
+            - need to check how many tokens are chosen + vs topk + computational concerns
+            - also need to double check where to input the classifier guidance in the beam search algorithm
+            - could try a beam of 1 (should be eq. to greedy)
+        - found where need to evaluate more candidates to get x_{1:i}, pbbly using topn, buut not sure how to proceed implementation wise now
+            - before choosing next token, need to evaluate a bunch of x_{1:i} candidates
+            - has to be inside the be

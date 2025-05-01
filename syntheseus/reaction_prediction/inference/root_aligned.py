@@ -57,10 +57,10 @@ class AtomCountClassifier(nn.Module):
         self.gamma = gamma
         self.tokenizer = tokenizer
 
-    def forward(self, *args, **kwargs):
-        return 1.
+    # def forward(self, *args, **kwargs):
+    #     return 1.
         
-    def forward_(self, original_scores):
+    def forward(self, partial_seq):
         """
         Apply a heuristic to predict if the molecule will be small.
         
@@ -75,7 +75,7 @@ class AtomCountClassifier(nn.Module):
         # Count tokens that likely indicate atoms/bonds
         
         # Estimate current size and projected final size
-        input_ids = args[0]
+        input_ids = partial_seq
         seq_length = input_ids.shape[1]
         
         # Heuristic 1: Use sequence length directly
@@ -87,8 +87,7 @@ class AtomCountClassifier(nn.Module):
         if self.tokenizer:
             # Count tokens representing atoms (this is highly tokenizer-specific)
             # Example implementation - adapt to your tokenization scheme
-            atom_tokens = set([self.    tokenizer.convert_tokens_to_ids(t) for t in 
-                              ['C', 'N', 'O', 'S', 'F', 'Cl', 'Br', 'P']])
+            atom_tokens = set([self.tokenizer.convert_tokens_to_ids(t) for t in ['C', 'N', 'O', 'S', 'F', 'Cl', 'Br', 'P']])
             
             # Count atom tokens in sequence
             atom_count = sum(1 for t in input_ids[0].tolist() if t in atom_tokens)
@@ -101,16 +100,17 @@ class AtomCountClassifier(nn.Module):
         
         # Convert to probability using sigmoid
         # Higher probability = more likely to be a small molecule
-        probability = torch.sigmoid(self.gamma * size_difference / self.scale)
+        probability = torch.sigmoid(self.gamma * torch.tensor(size_difference) / self.scale)
         
         # Ensure tensor shape and type
         return torch.tensor(probability, device=input_ids.device).view(-1, 1)
     
 # Create a wrapper for the generator that adds your classifier guidance
 class ClassifierGuidedGenerator(nn.Module):
-    def __init__(self, original_generator, src, classifier_model, guidance_scale=1.0):
+    def __init__(self, original_generator, translator, src, classifier_model, guidance_scale=1.0):
         super().__init__()
         self.original_generator = original_generator
+        self.translator = translator
         self.classifier_model = classifier_model
         self.guidance_scale = guidance_scale
         self.src = src
@@ -119,10 +119,15 @@ class ClassifierGuidedGenerator(nn.Module):
         # Get the original scores from the translator's generator
         # TODO: what input goes here? need partially completed sequence
         original_scores = self.original_generator(*args, **kwargs)
-        
+
         # Apply your classifier guidance/bias
         # The exact implementation depends on your classifier and how you want to combine scores
-        classifier_scores = self.classifier_model(*args, **kwargs)  # or whatever inputs your classifier needs
+        # HACK: need to choose topn candidates here to evaluate for the classifier, and from which we choose topk for the beam search
+        # choose topn candidates to evaluate for the classifier
+        classifier_scores = self.classifier_model(self.translator.alive_seq)  # or whatever inputs your classifier needs
+
+
+        # HACK: need to choose topn candidates here to evaluate for the classifier, and from which we choose topk for the beam search
         
         # Combine scores (e.g., add, multiply, etc.)
         # This is similar to your pseudocode: original_scores + my_own_bias
@@ -283,7 +288,7 @@ class RootAlignedModel(ExternalBackwardReactionModel):
         original_generator = self.translator.model.generator
 
         # Create your wrapper with your classifier
-        guided_generator = ClassifierGuidedGenerator(original_generator, src, self.classifier)
+        guided_generator = ClassifierGuidedGenerator(original_generator, self.translator, src, self.classifier)
 
         # Replace the generator in the translator
         self.translator.model.generator = guided_generator
@@ -348,7 +353,7 @@ class RootAlignedModel(ExternalBackwardReactionModel):
         # Step 3: Translate.
         print(f'self.with_classifier_guidance: {self.with_classifier_guidance}')
         if self.with_classifier_guidance:
-            augmented_predictions = self.translate_with_classifier_guidance(model=self.translator.model,
+            _, augmented_predictions = self.translate_with_classifier_guidance(model=self.translator.model,
                                                                             src=augmented_batch,
                                                                             guidance_scale=1.0)
         else:

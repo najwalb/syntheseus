@@ -44,7 +44,8 @@ def main(config):
     test_mol = Molecule(smi)
     # model = LocalRetroModel(use_cache=True, default_num_results=10)
     model = RootAlignedModel(use_cache=True, 
-                             default_num_results=100,# 10
+                             default_num_results=100,# 
+                             with_classifier_guidance=False,
                              model_dir=os.path.join(PROJECT_ROOT,
                                                     'scripts',
                                                     'rsmiles_full_no_overlap_checkpoints'))
