@@ -60,7 +60,7 @@ class AtomCountClassifier(nn.Module):
     def forward(self, *args, **kwargs):
         return 1.
         
-    def forward_(self, original_scores):
+    def forward_(self, *args, **kwargs):
         """
         Apply a heuristic to predict if the molecule will be small.
         
